@@ -64,7 +64,7 @@ if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
 dataset = load_dataset("KorQuAD/squad_kor_v1", split="train")
-dataset = dataset.shuffle(seed=42).select(range(1000))  # 데이터셋을 섞고 3만 개로 제한
+dataset = dataset.shuffle(seed=42).select(range(1000))  # 데이터셋을 섞고 1천 개로 제한
 dataset = dataset.map(
     formatting_prompts_func,
     batched=True,
@@ -111,7 +111,7 @@ training_params = SFTConfig(
     max_grad_norm=0.3,
     warmup_ratio=0.03,
     group_by_length=True,
-    lr_scheduler_type="constant",
+    lr_scheduler_type="cosine",
     dataset_text_field="text",
     packing=False,
     max_seq_length=None,
