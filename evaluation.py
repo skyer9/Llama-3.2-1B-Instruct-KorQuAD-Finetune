@@ -36,13 +36,15 @@ def evaluate_model(model, tokenizer, dataset):
         question = example["question"]
         answers = example["answers"]
 
-        korQuAD_prompt = f"""<s>[INST] 다음 문맥을 바탕으로 질문에 답해주세요.
+        korQuAD_prompt = f"""
+            ### Question:
+            {question}
 
-문맥:
-{context}
+            ### Context:
+            {context}
 
-질문: {question} [/INST]
-"""
+            ### Answer:
+        """
 
         input_ids = tokenizer.encode(korQuAD_prompt, return_tensors="pt").to(
             model.device

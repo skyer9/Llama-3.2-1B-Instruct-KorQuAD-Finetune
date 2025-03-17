@@ -7,15 +7,16 @@ import os
 
 
 def formatting_prompts_func(examples):
-    eos_token = "respond"
-    korQuAD_prompt = """<s>[INST] 다음 문맥을 바탕으로 질문에 답해주세요.
+    eos_token = '<|eot_id|>'  # Llama 모델의 eos token
+    korQuAD_prompt = """
+        ### Question:
+        {}
 
-    문맥:
-    {1}
+        ### Context:
+        {}
 
-    질문: {0} [/INST]
-
-    {2}</s>
+        ### Answer:
+        {}
     """
 
     instructions = examples["question"]
@@ -59,7 +60,8 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto",
 )
 tokenizer = AutoTokenizer.from_pretrained(local_model_path)
-tokenizer.pad_token = "respond"
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
 
 dataset = load_dataset("KorQuAD/squad_kor_v1", split="train")
 dataset = dataset.shuffle(seed=42).select(range(1000))  # 데이터셋을 섞고 3만 개로 제한
@@ -95,7 +97,7 @@ lora_config = LoraConfig(
 model = get_peft_model(model, lora_config)
 
 training_params = SFTConfig(
-    output_dir="/results",
+    output_dir="./results",
     num_train_epochs=3,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=1,
@@ -107,7 +109,6 @@ training_params = SFTConfig(
     fp16=False,
     bf16=False,
     max_grad_norm=0.3,
-    max_steps=2000,
     warmup_ratio=0.03,
     group_by_length=True,
     lr_scheduler_type="constant",
@@ -118,7 +119,7 @@ training_params = SFTConfig(
 trainer = SFTTrainer(
     model=model,
     train_dataset=dataset,
-    peft_config=lora_config,
+    # peft_config=lora_config,
     # dataset_text_field="text",
     # max_seq_length=None,
     tokenizer=tokenizer,

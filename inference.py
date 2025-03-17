@@ -32,12 +32,14 @@ context = """
 question = "비욘세가 합창단원으로 활동한 교회의 이름은?"
 
 # 입력 형식 설정
-korQuAD_prompt = f"""<s>[INST] 다음 문맥을 바탕으로 질문에 답해주세요.
+korQuAD_prompt = f"""
+    ### Question:
+    {question}
 
-문맥:
-{context}
+    ### Context:
+    {context}
 
-질문: {question} [/INST]
+    ### Answer:
 """
 # 토큰화
 input_ids = tokenizer.encode(korQuAD_prompt, return_tensors="pt").to(model.device)
