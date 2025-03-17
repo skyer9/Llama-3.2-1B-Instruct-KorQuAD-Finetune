@@ -96,6 +96,7 @@ model = get_peft_model(model, lora_config)
 
 training_params = SFTConfig(
     output_dir="/results",
+    num_train_epochs=3,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=1,
     # optim="paged_adamw_32bit",            # for CUDA
