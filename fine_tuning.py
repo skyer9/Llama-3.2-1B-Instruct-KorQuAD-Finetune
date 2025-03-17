@@ -2,7 +2,8 @@ from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
 import torch
 from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
-from trl import SFTTrainer
+from trl import SFTTrainer, SFTConfig
+import os
 
 
 def formatting_prompts_func(examples):
@@ -29,18 +30,39 @@ def formatting_prompts_func(examples):
     return {"text": texts}
 
 
-# model_path = 'meta-llama/Llama-3.2-1B-Instruct'   #huggingface에 연결하는 case
-model_path = "./models/Llama-3.2-1B-Instruct"  # 로컬에서 model을 불러오는 case
+# Define the model directory
+local_model_path = "./models/Llama-3.2-1B-Instruct"
+hf_model_id = 'meta-llama/Llama-3.2-1B-Instruct'
 
+# Download the model if it doesn't exist locally
+if not os.path.exists(local_model_path):
+    print(f"Downloading model from {hf_model_id} to {local_model_path}...")
+    os.makedirs(local_model_path, exist_ok=True)
+    
+    # Download tokenizer first
+    tokenizer = AutoTokenizer.from_pretrained(hf_model_id)
+    tokenizer.save_pretrained(local_model_path)
+    
+    # Download model
+    temp_model = AutoModelForCausalLM.from_pretrained(
+        hf_model_id,
+        device_map="auto",
+    )
+    temp_model.save_pretrained(local_model_path)
+    print("Model download complete.")
+else:
+    print(f"Model already exists at {local_model_path}")
+
+# Now load the model from local path
 model = AutoModelForCausalLM.from_pretrained(
-    model_path,
+    local_model_path,
     device_map="auto",
 )
-tokenizer = AutoTokenizer.from_pretrained(model_path)
+tokenizer = AutoTokenizer.from_pretrained(local_model_path)
 tokenizer.pad_token = "respond"
 
 dataset = load_dataset("KorQuAD/squad_kor_v1", split="train")
-dataset = dataset.shuffle(seed=42).select(range(7500))  # 데이터셋을 섞고 3만 개로 제한
+dataset = dataset.shuffle(seed=42).select(range(1000))  # 데이터셋을 섞고 3만 개로 제한
 dataset = dataset.map(
     formatting_prompts_func,
     batched=True,
@@ -72,11 +94,12 @@ lora_config = LoraConfig(
 # # LoRA 적용
 model = get_peft_model(model, lora_config)
 
-training_params = TrainingArguments(
+training_params = SFTConfig(
     output_dir="/results",
     per_device_train_batch_size=1,
     gradient_accumulation_steps=1,
-    optim="paged_adamw_32bit",
+    # optim="paged_adamw_32bit",            # for CUDA
+    optim="adamw_torch",                    # for CPU
     logging_steps=5,
     learning_rate=2e-4,
     weight_decay=0.001,
@@ -87,16 +110,19 @@ training_params = TrainingArguments(
     warmup_ratio=0.03,
     group_by_length=True,
     lr_scheduler_type="constant",
+    dataset_text_field="text",
+    packing=False,
+    max_seq_length=None,
 )
 trainer = SFTTrainer(
     model=model,
     train_dataset=dataset,
     peft_config=lora_config,
-    dataset_text_field="text",
-    max_seq_length=None,
+    # dataset_text_field="text",
+    # max_seq_length=None,
     tokenizer=tokenizer,
     args=training_params,
-    packing=False,
+    # packing=False,
 )
 
 trainer.train()

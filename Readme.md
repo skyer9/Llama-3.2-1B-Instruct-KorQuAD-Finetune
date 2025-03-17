@@ -60,6 +60,22 @@ $python evaluate-v1.0.py [dataset_file] [prediction_file]
   - 대상 모듈: ["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "down_proj", "up_proj"]
   - lora_dropout: 0.01
 
+## fine tuning
+
+```bash
+python -m venv venv
+
+# Linux/Mac
+# source venv/bin/activate
+# Windows
+venv\Scripts\activate
+
+# without CUDA
+pip install datasets transformers torch peft trl bitsandbytes
+
+python fine_tuning.py
+```
+
 ## Contact
 - njsung1217@gmail.com
 - https://github.com/nakjun
