@@ -31,8 +31,9 @@ llm = OllamaLLM(
 
 # 한국어 임베딩 모델 설정 (kobert 또는 다른 한국어 모델 사용)
 embeddings = HuggingFaceEmbeddings(
-    model_name="jhgan/ko-sbert-nli",  # 한국어 지원 임베딩 모델
-    model_kwargs={'device': 'cpu'}
+    model_name="jhgan/ko-sroberta-multitask",  # 한국어 지원 임베딩 모델
+    model_kwargs={'device': 'cpu'},
+    encode_kwargs={'normalize_embeddings': True}
 )
 
 # 벡터 DB 초기화 변수
