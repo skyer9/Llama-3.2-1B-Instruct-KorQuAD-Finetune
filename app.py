@@ -78,12 +78,12 @@ rag_prompt_template = """
 
 {context}
 
-질문: {query}
+질문: {question}
 답변:
 """
 
 rag_prompt = PromptTemplate(
-    input_variables=["context", "query"],
+    input_variables=["context", "question"],
     template=rag_prompt_template
 )
 
@@ -102,7 +102,11 @@ def create_rag_chain():
         llm=llm,
         chain_type="stuff",
         retriever=retriever,
-        chain_type_kwargs={"prompt": rag_prompt}
+        verbose=True,
+        chain_type_kwargs={
+            "verbose": True,
+            "prompt": rag_prompt
+        }
     )
     
     return qa_chain
@@ -225,10 +229,11 @@ def create_gradio_interface():
         if rag_chain is None:
             return "RAG 체인을 생성할 수 없습니다."
 
-        # Change this line to pass a dictionary with 'query' key
+        # Chain 입력에 필요한 모든 키를 포함
+        # response = rag_chain.invoke({"context": "", "query": question})
         response = rag_chain.invoke({"query": question})
 
-        # 결과에서 answer 키 추출
+        # Rag 체인의 응답에서 result 키 추출
         return response.get("result", "응답을 생성할 수 없습니다.")
     
     with gr.Blocks(theme=gr.themes.Soft()) as interface:
