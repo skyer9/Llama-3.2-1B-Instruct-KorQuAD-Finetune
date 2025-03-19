@@ -1,4 +1,4 @@
-# pip install langchain langchain-core langchain-community fastapi uvicorn langchain-ollama gradio faiss-cpu pypdf
+# pip install langchain langchain-core langchain-community fastapi uvicorn langchain-ollama gradio faiss-cpu pypdf langchain_huggingface langserve
 from langchain_ollama import OllamaLLM
 from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableSequence
