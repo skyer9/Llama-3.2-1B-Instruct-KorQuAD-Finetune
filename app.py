@@ -15,6 +15,7 @@ import uvicorn
 import os
 import tempfile
 import shutil
+import hashlib
 
 # 임시 디렉토리 설정
 UPLOAD_DIR = "uploaded_pdfs"
@@ -22,6 +23,34 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # 벡터 스토어 디렉토리
 VECTOR_STORE_DIR = "faiss_index"
+
+# PDF 파일 해시 정보를 저장할 디렉토리 및 파일
+HASH_DIR = "pdf_hashes"
+os.makedirs(HASH_DIR, exist_ok=True)
+HASH_FILE = os.path.join(HASH_DIR, "pdf_hashes.txt")
+
+# 파일 해시 정보 저장 및 로드 함수
+def save_file_hash(filename, file_hash):
+    with open(HASH_FILE, "a") as f:
+        f.write(f"{filename}:{file_hash}\n")
+
+def load_file_hashes():
+    hash_map = {}
+    if os.path.exists(HASH_FILE):
+        with open(HASH_FILE, "r") as f:
+            for line in f:
+                if ":" in line:
+                    filename, file_hash = line.strip().split(":", 1)
+                    hash_map[file_hash] = filename
+    return hash_map
+
+# 파일 해시 계산 함수
+def calculate_file_hash(file_path):
+    hash_md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
 
 # Ollama 모델 설정
 llm = OllamaLLM(
@@ -128,6 +157,20 @@ async def upload_pdf(file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
+    # 파일 해시 계산 및 중복 확인
+    file_hash = calculate_file_hash(file_path)
+    hash_map = load_file_hashes()
+    
+    # 중복 파일 확인
+    if file_hash in hash_map:
+        original_filename = hash_map[file_hash]
+        # 새로 업로드된 파일 삭제
+        os.remove(file_path)
+        return {"message": f"중복된 PDF 파일입니다. '{original_filename}'과(와) 동일한 내용을 가진 파일이 이미 처리되었습니다."}
+    
+    # 새 파일인 경우 해시 저장
+    save_file_hash(file.filename, file_hash)
+    
     # 벡터 스토어 처리
     file_paths = [file_path]
     if vector_store:
@@ -140,7 +183,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         )
         chunks = text_splitter.split_documents(new_docs)
         vector_store.add_documents(chunks)
-        vector_store.save_local(VECTOR_STORE_DIR)
+        vector_store.save_local(VECTOR_STORE_DIR, allow_dangerous_deserialization=True)
     else:
         # 새 벡터 스토어 생성
         vector_store = process_pdf_documents(file_paths)
@@ -200,6 +243,20 @@ def create_gradio_interface():
         # 파일 복사
         shutil.copy(file_path, temp_path)
         
+        # 파일 해시 계산 및 중복 확인
+        file_hash = calculate_file_hash(temp_path)
+        hash_map = load_file_hashes()
+        
+        # 중복 파일 확인
+        if file_hash in hash_map:
+            original_filename = hash_map[file_hash]
+            # 새로 업로드된 파일 삭제
+            os.remove(temp_path)
+            return f"중복된 PDF 파일입니다. '{original_filename}'과(와) 동일한 내용을 가진 파일이 이미 처리되었습니다."
+        
+        # 새 파일인 경우 해시 저장
+        save_file_hash(os.path.basename(file_path), file_hash)
+        
         global vector_store
         if vector_store:
             # 기존 벡터 스토어에 문서 추가
@@ -211,7 +268,7 @@ def create_gradio_interface():
             )
             chunks = text_splitter.split_documents(new_docs)
             vector_store.add_documents(chunks)
-            vector_store.save_local(VECTOR_STORE_DIR)
+            vector_store.save_local(VECTOR_STORE_DIR, allow_dangerous_deserialization=True)
         else:
             # 새 벡터 스토어 생성
             vector_store = process_pdf_documents([temp_path])
@@ -231,7 +288,6 @@ def create_gradio_interface():
             return "RAG 체인을 생성할 수 없습니다."
 
         # Chain 입력에 필요한 모든 키를 포함
-        # response = rag_chain.invoke({"context": "", "query": question})
         response = rag_chain.invoke({"query": question})
 
         # Rag 체인의 응답에서 result 키 추출
